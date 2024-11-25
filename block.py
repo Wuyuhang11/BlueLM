@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 import GPTConfig
-import attention
-import MLP as mlp
+from attention import Attention
+import MLP 
 
 
 class Block(nn.Module):
@@ -12,7 +12,7 @@ class Block(nn.Module):
     def __init__(self, config: GPTConfig, scale: bool = False) -> None:
         super().__init__()
         n_embd = config.n_embd  # 输入序列维度
-        self.attn = attention(config, scale)  # 多头注意力初始化
+        self.attn = Attention(config, scale)  # 多头注意力初始化
         self.ln_1 = nn.LayerNorm(n_embd)  # 层归一化
         self.mlp = MLP(config)  # 前向传播初始化
         self.ln_2 = nn.LayerNorm(n_embd)  # 层归一化
