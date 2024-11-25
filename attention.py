@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 from conv import Conv1D
+import math
+import GPTConfig
 
 n_position = 10
 
@@ -10,16 +13,17 @@ class Attention(nn.Module):
 
     def __init__(self, config: GPTConfig, scale: bool = False) -> None:
         super().__init__()
-        self.n_embd = config.n_embd
+        self.n_embd = config.n_embd  # 输入序列维度
 
         assert config.n_embd % config.n_head == 0
 
-        self.scale = scale
-        self.n_head = config.n_head
+        self.scale = scale  # 注意力缩放
+        self.n_head = config.n_head  # 注意力头数
 
-        self.c_attn = Conv1D(self.n_embd, self.n_embd * 3)
-        self.c_proj = Conv1D(self.n_embd, self.n_embd)
-        # use flash attention or not
+        self.c_attn = Conv1D(self.n_embd, self.n_embd * 3)  # 特征变换
+        self.c_proj = Conv1D(self.n_embd, self.n_embd)  # 特征压缩
+
+        # 如果没有 flash attention 就创造一个下三角掩码矩阵作为缓冲区，存储掩码矩阵
         self.flash = hasattr(torch.nn.functional, "scaled_dot_product_attention")
         if not self.flash:
             self.register_buffer(
@@ -33,6 +37,7 @@ class Attention(nn.Module):
         self.attn_dropout = nn.Dropout(config.dropout)
         self.proj_dropout = nn.Dropout(config.dropout)
 
+    # 分Q、K、V
     def split_heads(self, x: Tensor, is_key: bool = False) -> Tensor:
         """从最后一个维度上进行拆分得到 Q、K、V 矩阵
 
@@ -56,22 +61,85 @@ class Attention(nn.Module):
         # q、v->(batch_size, num_heads, seq_len, n_embd / num_heads)
         return x.permute(0, 2, 1, 3)
 
+    # 合并每个注意力头学习到的信息到统一的特征空间
     def merge_heads(self, x: Tensor) -> Tensor:
-        """
+        """合并注意力头学习到信息到统一的特征空间中
 
         Args:
-            x (Tensor):  (batch_size,  n_head, seq_len, n_embd / n_head)
+            x (Tensor): 每个头的特征张量
 
         Returns:
-            Tensor: (batch_size, seq_len, n_embd)
+            Tensor: 合并后的特征张量
         """
-        # x (batch_size,  seq_len, n_head, n_embd / n_head)
-        x = x.permute(0, 2, 1, 3).contiguous()
-        # (batch_size, seq_len, n_embd)
+        # x->(batch_size, seq_len, n_heads, n_embd / n_heads)
+        x = x.permute(0, 2, 1, 3).contiguous
+        # x->(batch_size, seq_len, n_embd)
         new_shape = x.size()[:-2] + (x.size(-2) * x.size(-1),)
         return x.view(*new_shape)
 
-    
+    # 注意力机制
+    def _attn(
+        self,
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        attention_mask: Tensor = None,
+        output_attentions: bool = False,
+    ) -> list[Tensor]:
+        """GPT Decoder中的注意力机制实现
+
+        Args:
+            q (Tensor): 查询张量
+            k (Tensor): 键值张量
+            v (Tensor): 值张量
+            attention_mask (Tensor, optional): 掩码矩阵. Defaults to None.
+            output_attentions (bool, optional): 是否输出注意力权重. Defaults to False.
+
+        Returns:
+        1.利用查询张量Q和键值张量计算注意力分数
+        2.对注意力分数进行掩码，实现输出的自回归
+        3.正规化分数
+        4.利用值向量加权求和
+        5.输出注意力权重（含义：模型对输入序列中各个位置中的关注程度）
+            list[Tensor]: _description_
+        """
+
+        # 是否使用掩码
+        if self.flash:
+            # 1使用 flash attention:  利用PyTorch内置的函数来计算注意力输出和权重
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                q,
+                k,
+                v,
+                attn_mask=None,
+                dropout_p=self.attn_dropout.p if self.training else 0,
+                is_causal=True,  # 传入is_causal=True表示使用掩码来实现自回归特性，因此attn_mask为None
+            )
+        else:
+            # 2.利用q、k计算注意力分数->(batchsize, n_heads, seq_len, seq_len)
+            scores = torch.matmul(q, k)
+            # 3.缩放注意力分数，使输出在正态分布内
+            if self.scale:
+                scores = scores / math.sqrt(v.size(-1))
+            # 4.应用掩码，形成自回归（Masking）
+            bias = self.bias[:, :, : scores.size(-2), : scores.size(-1)]
+            # 通过bias和scores相乘，将下三角置为0，并减去一个很大的数，使得注意力分数上的掩码位置是个很小的数，softmax后未来的元素注意力权重就会为0
+            scores = scores * bias + -1e9 * (1 - bias)
+            # 5.掩码后应用softmax和dropout
+            weights = self.attn_dropout(F.softmax(scores, dim=-1))
+            # 6.应用注意力掩码(Attention Masking)，进一步屏蔽特定位置的注意力（注：相比于Masking，更加通用，并且可以用于非自回归，屏蔽掉不相关或不应该被模型看到的输入部分）
+            if attention_mask is not None:
+                weights = weights + attention_mask
+
+            del scores
+            # 7.将注意力权重weights和头的值向量加权求和，得到最后的注意力输出
+            attn_output = torch.matmul(weights, v)
+            outputs = [attn_output]
+            # 8.返回 outputs 列表，它包含了注意力输出和（如果需要的话）注意力权重。
+            if output_attentions:
+                outputs.append(weights)
+
+            return outputs
 
     def forward(
         self, x: Tensor, attention_mask: Tensor = None, output_attentions: bool = False

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
-
+import GPTConfig
 
 # Conv1D的实现
 class Conv1D(nn.Module):  # 继承神经网络基座
@@ -22,10 +22,10 @@ class Conv1D(nn.Module):  # 继承神经网络基座
         """
         Summary：利用模型Conv1D对输入 x 执行卷积操作
         Args:
-            x (Tensor): (batch_size批大小, seq_len序列长度, embed_dim输入元素的特征数量)
+            x (Tensor): (batch_size, seq_len, embed_dim)
 
         Returns:
-            Tensor: 返回 (batch_size批大小, se_len序列长度, out_features输出维度特征数量)
+            Tensor: 返回 (batch_size, se_len, out_features)
         """
 
         # 输出格式

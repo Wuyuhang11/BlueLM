@@ -2,7 +2,7 @@ from torch.nn import functional as F
 import torch.nn as nn
 from conv import Conv1D
 from torch import Tensor
-
+import GPTConfig
 
 class MLP(nn.Module):
     def __init__(self, config: GPTConfig) -> None:
