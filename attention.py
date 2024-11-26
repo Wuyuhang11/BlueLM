@@ -20,7 +20,7 @@ class Attention(nn.Module):
         self.scale = scale  # 注意力缩放
         self.n_head = config.n_head  # 注意力头数
 
-        self.c_attn = Conv1D(self.n_embd, self.n_embd * 3)  # 特征变换
+        self.c_attn = Conv1D(self.n_embd, self.n_embd * 3)  # 特征变换: 目的是将输入的嵌入维度n_embd扩展到n_embd*3，为每个头生成q、k、v三种向量
         self.c_proj = Conv1D(self.n_embd, self.n_embd)  # 特征压缩
 
         # 如果没有 flash attention 就创造一个下三角掩码矩阵作为缓冲区，存储掩码矩阵
@@ -97,7 +97,7 @@ class Attention(nn.Module):
 
         Returns:
         1.利用查询张量Q和键值张量计算注意力分数
-        2.对注意力分数进行掩码，实现输出的自回归
+        2.对注意力分数进行掩码（对上三角矩阵设为0，点积的时候注意力分数即为0了，然后再断言为0的元素设置为负无穷，负无穷的元素在softmax时就为0），实现输出的自回归
         3.正规化分数
         4.利用值向量加权求和
         5.输出注意力权重（含义：模型对输入序列中各个位置中的关注程度）
@@ -141,42 +141,35 @@ class Attention(nn.Module):
 
             return outputs
 
-    def forward(
-        self, x: Tensor, attention_mask: Tensor = None, output_attentions: bool = False
-    ) -> list[Tensor]:
-        """
+    # 前向传播
+    def forward(self, x: Tensor, output_attentions: bool = False) -> list[Tensor]:
+        """注意力机制
 
         Args:
-            x (Tensor): (batch_size, seq_len, n_embd)
+            x (Tensor): 输入特征张量
+            output_attentions (bool, optional): 是否输出注意力权重. Defaults to False.
 
         Returns:
-            Tensor: (batch_size, seq_len, n_embd) attn_output
-            Tensor(optional): (batch_size, n_head, seq_len, seq_len) attn_weights
-
+            list[Tensor]: _description_
         """
-        # calculate query, key ,value for all heads in batch
-        # x (batch_size, seq_len, n_embd * 3)
+        # 1.特征变换，为了得到q，k，v
         x = self.c_attn(x)
-        #  query, key, value (batch_size, seq_len, n_embd)
+        # 2.分出q、k、v，通过 split 方法将张量 x 沿着第三个维度 n_embd*3 分割成三个相等的部分，每个部分大小为 n_embd 维度
+        # q、k、v->(batch_size, seq_len, n_embd)
         query, key, value = x.split(self.n_embd, dim=2)
-        # query (batch_size,  n_head, seq_len, n_embd / n_head)
+        # query,value->(batch_size, n_head, n_embd/n_head, seq_len); key->(batch_size, n_head, seqlen, n_embd/n_head)
         query = self.split_heads(query)
-        # key (batch_size, n_head, n_embd / n_head, seq_len)
-        key = self.split_heads(key, is_key=not self.flash)
-        # value (batch_size,  n_head, seq_len, n_embd / n_head)
+        key = self.split_heads(key, is_key=True)
         value = self.split_heads(value)
-        # attn_output (batch_size,  n_head, seq_len, n_embd / n_head)
-        attn_outputs = self._attn(query, key, value, attention_mask, output_attentions)
+        # 3.得到注意力输出
+        attn_outputs = self._attn(query, key, value, output_attentions)
         attn_output = attn_outputs[0]
-
-        del query, key, value
-
-        # output (batch_size, seq_len, n_embd)
+        # 4.合并多注意力头
         output = self.merge_heads(attn_output)
-        # (batch_size, seq_len, n_embd)
+        # 5.进行特征压缩
         output = self.c_proj(output)
-
+        # 6.dropout
         output = self.proj_dropout(output)
-
-        outputs = [output] + attn_outputs[1:]
+        # 7.结合注意力权重返回
+        outputs = [output] + attn_output[1:]
         return outputs

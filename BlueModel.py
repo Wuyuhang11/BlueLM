@@ -60,34 +60,41 @@ class BlueModel(BlueLMPreTrainedModel):
         Returns:
             Union[Tuple[torch.Tensor], BaseModelOutput]: 方法的返回值可以是一个包含 torch.Tensor 张量的元组，或者是一个 BaseModelOutput 对象。BaseModelOutput 是一个封装了模型输出的结构体，它提供了一种更结构化的方式来访问模型的输出，如最后一层的隐藏状态、所有层的隐藏状态和注意力权重。
         """
-
+        # 1.获取输入张量id的形状
         input_shape = input_ids.size()
-
+        # 2.将输入的token ids转为嵌入向量
         inputs_embeds = self.tokens_embed(input_ids)
-        # generate position ids
+        # 3.生成位置编码的索引
         position_ids = self.position_ids[None, : input_shape[-1]]
-
+        # 4.将位置索引转换为位置嵌入向量
         position_embeds = self.positions_embed(position_ids)
-
+        # 5.合并嵌入向量
         hidden_states = inputs_embeds + position_embeds
-
+        # 6.应用dropout层对隐藏状态舍去一些神经远,以减少过拟合
         hidden_states = self.dropout(hidden_states)
-
+        
+        # 7.初始化注意力权重和隐藏状态
         all_attentions = () if output_attentions else None
         all_hidden_states = () if output_hidden_states else None
 
-        for _, block in enumerate(self.h):
+        # 8.遍历所有的 Transformer 模块
+        for _, Block in enumerate(self.h):
+            # 将上一个block输出的hidden_states作为下一个block的输入(all_hidden_states表示为所有block的隐藏状态输出)
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
-            outputs = block(hidden_states, attention_mask, output_attentions)
+            # 输入->(上一层隐藏状态输出, 自定义掩码矩阵, 注意力权重输出选项)
+            outputs = Block(hidden_states, attention_mask, output_attentions)
+            # 输出->注意力分数,作为下一个块的输入
             hidden_states = outputs[0]
             if output_attentions:
+                # 将当前块的注意力权重添加至列表中
                 all_attentions = all_attentions + (outputs[1],)
 
-        # add last layer
+        # 9.将最后一层的隐藏状态输出添加到状态列表中
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
+        # 10.将最后一层的隐藏状态 hidden_states 和 所有层的隐藏状态 all_hidden_states 和注意力权重 all_attentions 打包为一个元组返回
         if not return_dict:
             return tuple(
                 v
