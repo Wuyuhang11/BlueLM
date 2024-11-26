@@ -47,6 +47,7 @@ class BlueModel(BlueLMPreTrainedModel):
         """
         Args:
             input_ids (torch.LongTensor): 表示输入数据的张量，类型为长整型张量（torch.LongTensor），形状为 (batch_size, seq_len)。这里 batch_size 是批次中的序列数量，seq_len 是每个序列的长度。
+            attention_mask: Tensor = None: 注意力掩码，掩码模型不想看到的地方。
             output_attentions (bool, optional): 一个可选的布尔参数，默认值为 False。如果设置为 True，则方法将返回所有注意力层的注意力张量（即注意力权重）。
             output_hidden_states (bool, optional): 另一个可选的布尔参数，默认值为 False。如果设置为 True，则方法将返回所有层的隐藏状态。
             return_dict (bool, optional): 一个可选的布尔参数，默认值为 False。如果设置为 True，则方法将返回一个 BaseModelOutput 对象，而不是一个普通的元组。
