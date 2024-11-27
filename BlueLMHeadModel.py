@@ -54,6 +54,7 @@ class BlueLMHeadModel(BlueLMPreTrainedModel):
             attention_mask = attention_mask.to(dtype=next(self.parameters()).dtype)
             # 将掩码中的值转换为负数，这样在计算注意力分数时，被掩码的位置将被赋予非常小的权重
             attention_mask = (1.0 - attention_mask) * torch.finfo(self.dtype).min
+        print("mask:", attention_mask)
 
         # 2.Transformer 输出，执行自注意力和前馈神经网络的计算
         transformer_outputs = self.transformer(
@@ -63,12 +64,15 @@ class BlueLMHeadModel(BlueLMPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+        print("transformer_output:", transformer_outputs)
 
         # 3.得到最后一层的隐藏状态
         hidden_states = transformer_outputs[0]
+        print("hidden_output:", hidden_states)
 
         # 4.通过 Linear 线性层计算当前 token 的 logits（token依赖于序列中不同位置）
         lm_logits = self.lm_head(hidden_states)
+        print("logits:", lm_logits)
 
         # 5.计算损失
         loss = None
