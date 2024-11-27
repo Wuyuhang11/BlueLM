@@ -1,7 +1,6 @@
 # BlueLM
-BlueLM
 <div align="center">
-    <img src="https://github.com/user-attachments/assets/17dcefe0-378c-4a19-9104-8ee1d540973c" alt="BlueLM" />
+    <img src="[https://github.com/user-attachments/assets/17dcefe0-378c-4a19-9104-8ee1d540973c](https://github.com/user-attachments/assets/3a2877e0-fb02-4f11-be1f-80d43dd31ab0)" alt="BlueLM" />
 </div>
 
 **1.介绍：**
