@@ -28,7 +28,7 @@ class BlueLMHeadModel(BlueLMPreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor,
-        labels: torch.LongTensor = None,  # labels 用于训练正确的token IDs序列
+        labels: torch.LongTensor = None,  # labels 用于训练正确的token IDs序列，标签label初始化为 None 用于 Pretrain 无监督训练
         attention_mask: torch.FloatTensor = None,
         output_attentions: bool = False,
         output_hidden_states: bool = False,
@@ -73,7 +73,7 @@ class BlueLMHeadModel(BlueLMPreTrainedModel):
         # 5.计算损失
         loss = None
         if labels is not None:
-            # 进行偏移操作: 将logits向右移动一个位置，因为自回归任务，模型预测当前位置token时，只能看到之前的所有token，contiguous保证张量移动时候，数据是连续的
+            # 进行偏移操作: 将logits向右移动一个位置，因为右移一个的token才是我们预测的token，contiguous保证张量移动时候，数据是连续的
             shift_logits = lm_logits[..., :-1, :].contiguous()
             # 同样将标签右移动，以预测下一个token
             shift_labels = labels[..., 1:].contiguous()
