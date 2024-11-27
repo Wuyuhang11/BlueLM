@@ -4,9 +4,9 @@
 </div>
 
 **0.鸣谢**
-上海人工智能实验室提供的算力支持：https://github.com/InternLM/Tutorial.
-感谢胜利的可乐的相关文章：https://helloai.blog.csdn.net/article/details/135702558.
-导师主页：https://xiongyujie.cn/
+1. 上海人工智能实验室提供的算力支持：https://github.com/InternLM/Tutorial.
+2. 感谢胜利的可乐的相关文章：https://helloai.blog.csdn.net/article/details/135702558.
+3. 导师主页：https://xiongyujie.cn/
 
 **1.介绍：**
 我们从 `0` 到 `1` 实现了一个`Pretrain-model`，名为 `BlueLM` ，能够根据输入对《斗破苍穹》实现文本续写
