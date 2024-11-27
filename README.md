@@ -1,7 +1,8 @@
 # BlueLM
 <div align="center">
-    <img src="https://github.com/user-attachments/assets/17dcefe0-378c-4a19-9104-8ee1d540973c" alt="BlueLM" />
+    <img src="https://github.com/user-attachments/assets/2cf7b081-7392-42f2-9954-316407d83aea" alt="BlueLM" />
 </div>
+
 
 **1.介绍：**
 我们从0到1实现了一个Pretrain-model，名为BlueLM，能够根据输入对《斗破苍穹》实现文本续写
