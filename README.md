@@ -24,7 +24,18 @@
 5. 输出层面，我们实现了注意力掩码的处理与 `token` 的 `logits` 输出.
 6. 定义了一个简单的早停器用于 `BlueLM` 的训练，并实现了 `BlueLM` 的训练过程
 7. 完整的展示了 `GPT` 在 `Pretrain` 阶段的实现
-
+8. 在推理模块，我们完成了文本单次续写
 
 **3.演示：**
+
+推理显存消耗：
+<div align="center">
+    <img src="https://github.com/user-attachments/assets/cf0da5a4-6c0d-465a-984f-d8973a6bb980" alt="BlueLM" />
+</div>
+
+文本续写结果：
+<div align="center">
+    <img src="https://github.com/user-attachments/assets/322f47e3-dff2-42aa-a54b-a1d1b6c59cbf" alt="BlueLM" />
+</div>
+
 
